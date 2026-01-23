@@ -1,0 +1,63 @@
+// assign service 
+{
+  "_id": "ObjectId",
+  "serviceId": "ObjectId",
+  "customer": {
+    "name": "Customer Name",
+    "email": "customer@gmail.com",
+    "phone": "01XXXXXXXX"
+  },
+  "eventDate": "2024-05-20", // ইভেন্ট কবে হবে
+  "orderDate": "Timestamp", // অর্ডার কবে করা হয়েছে
+  "totalAmount": 500, // Revenue monitoring এর জন্য
+  "transactionId": "TXN_123456",
+  "paymentStatus": "paid",
+  
+  // Assignment & Work Status (ডেকোরেটর কন্ট্রোল)
+  "assignedDecorator": {
+    "email": "decorator@gmail.com",
+    "name": "Decorator Name",
+    "decoratorFee": 150, // ডেকোরেটরের প্রাপ্য অংশ
+    "assignedAt": "Timestamp"
+  },
+  
+  "workStatus": "assigned", // "assigned", "received", "started", "completed"
+  "workLogs": {
+    "receivedAt": null,
+    "startedAt": null,
+    "completedAt": null
+  }
+}
+
+
+
+
+// service 
+
+{
+  "_id": "ObjectId",
+  "title": "Premium Wedding Stage",
+  "description": "Full details of service...",
+  "image": "image_url",
+  "category": "Wedding",
+  "price": 500, // ইউজারের জন্য প্যাকেজ মূল্য
+  "decoratorCommission": 150, // এই কাজ করলে ডেকোরেটর কত টাকা পাবে
+  "totalBookings": 25, // ডিমান্ড চার্ট/হিস্টোগ্রাম তৈরির জন্য
+  "status": "active", // "active", "paused"
+  "addedBy": "admin_email",
+  "createdAt": "Timestamp"
+}
+
+// user 
+
+{
+  "_id": "ObjectId",
+  "name": "User Name",
+  "email": "user@gmail.com",
+  "image": "photo_url",
+  "role": "user", // "admin", "decorator", "user"
+  "status": "active", // "active", "disabled" (লগইন ব্লক করার জন্য)
+  "createdAt": "Timestamp",
+  "totalEarnings": 0, // শুধুমাত্র ডেকোরেটরের জন্য (টোটাল কত টাকা আয় করেছে)
+  "currentBalance": 0 // শুধুমাত্র ডেকোরেটরের জন্য (যে টাকা এখনো উত্তোলন করেনি)
+}
