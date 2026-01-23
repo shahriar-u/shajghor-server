@@ -65,4 +65,24 @@ async function run() {
 
     // jwt token
 
+    app.post("/jwt-token", async (req, res) => {
+      const user = req.body;
+
+      // ডাটাবেজে চেক করা ইউজার এক্টিভ কি না
+      const dbUser = await usersCollection.findOne({ email: user.email });
+
+      if (dbUser && dbUser.status === "disabled") {
+        return res.status(403).send({
+          error: true,
+          message: "Your account is disabled. Contact Admin.",
+        });
+      }
+
+      const token = jwt.sign(user, process.env.USER_VERIFY_TOKEN, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
+    
     
