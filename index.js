@@ -137,4 +137,73 @@ async function run() {
 
     /** --- 2. USER & PROFILE MANAGEMENT --- **/
 
+    // নতুন ইউজার তৈরি (Signup)
+    app.post("/create_user", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser)
+        return res.send({ message: "User already exists", insertedId: null });
+
+      const newUser = {
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: "user",
+        status: "active",
+        createdAt: new Date(),
+        totalEarnings: 0,
+        currentBalance: 0,
+        wishlist: [],
+        orders: [],
+      };
+      const result = await usersCollection.insertOne(newUser);
+      res.send(result);
+    });
+
+    
+    app.get("/users/profile/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden Access" });
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      res.send(user);
+    });
+
+    // প্রোফাইল আপডেট (Patch)
+    app.patch("/users/update-profile/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const updatedData = req.body;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden Access" });
+
+      const filter = { email: email };
+      const updateFields = {};
+      if (updatedData.name?.trim()) updateFields.name = updatedData.name;
+      if (updatedData.phone?.trim()) updateFields.phone = updatedData.phone;
+      if (updatedData.address?.trim())
+        updateFields.address = updatedData.address;
+
+      if (Object.keys(updateFields).length === 0)
+        return res.status(400).send({ message: "No valid data provided" });
+      const result = await usersCollection.updateOne(filter, {
+        $set: updateFields,
+      });
+      res.send(result);
+    });
+
+    // ইউজার স্ট্যাটাস পরিবর্তন (Admin Only)
+    app.patch("/users/status/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const result = await usersCollection.updateOne(filter, {
+        $set: { status: status },
+      });
+      res.send(result);
+    });
+
+    /** --- 3. SERVICE MANAGEMENT --- **/
+
     
