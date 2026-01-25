@@ -206,4 +206,70 @@ async function run() {
 
     /** --- 3. SERVICE MANAGEMENT --- **/
 
+    // সব সার্ভিস দেখা (Public + Admin Filtering)
+    app.get("/services", async (req, res) => {
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        const user = await usersCollection.findOne({ email: email });
+        query = user?.role === "admin" ? {} : { status: "active" };
+      } else {
+        query = { status: "active" };
+      }
+      const result = await serviceCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // সিঙ্গেল সার্ভিস ডিটেইলস
+    app.get("/service/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await serviceCollection.findOne({ _id: new ObjectId(id) });
+      if (!result) return res.status(404).send({ message: "Not Found" });
+      res.send(result);
+    });
+
+   
+
+    // নতুন সার্ভিস যোগ করা (Admin/Decorator)
+    app.post("/services", verifyJWT, async (req, res) => {
+      const newService = req.body;
+      const email = req.decoded.email;
+      const user = await usersCollection.findOne({ email: email });
+      const currentRole = user?.role?.toLowerCase();
+
+      if (currentRole !== "decorator" && currentRole !== "admin") {
+        return res.status(403).send({ error: true, message: "Forbidden" });
+      }
+
+      const finalService = {
+        ...newService,
+        price: parseFloat(newService.price),
+        decoratorCommission: parseFloat(newService.decoratorCommission),
+        totalBookings: 0,
+        status: "active",
+        addedBy: email,
+        createdAt: new Date(),
+      };
+      const result = await serviceCollection.insertOne(finalService);
+      res.send(result);
+    });
+
+    
+
+    // সার্ভিস আপডেট (Admin Only)
+    app.put("/services/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const updatedService = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          ...updatedService,
+          price: parseFloat(updatedService.price),
+          decoratorCommission: parseFloat(updatedService.decoratorCommission),
+        },
+      };
+      const result = await serviceCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     
