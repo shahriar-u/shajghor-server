@@ -84,5 +84,57 @@ async function run() {
       res.send({ token });
     });
 
+    // মিডলওয়্যার: অ্যাডমিন ভেরিফিকেশন
     
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email; 
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "Forbidden: Admin access only" });
+      }
+      next();
+    };
+
+
+
+    /** --- 1. AUTHENTICATION & ROLE CHECK APIs --- **/
+
+    
+    app.get("/users/admin/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden" });
+      const user = await usersCollection.findOne({ email });
+      res.send({ admin: user?.role === "admin" });
+    });
+
+    // টোকেন যাচাই করে ইউজার ডেকোরেটর কি না
+    app.get("/users/decorator/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden" });
+      const user = await usersCollection.findOne({ email });
+      res.send({ decorator: user?.role === "decorator" });
+    });
+
+    // ইউজারের কারেন্ট স্ট্যাটাস চেক (Active/Disabled)
+    app.get("/user/status/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const user = await usersCollection.findOne({ email: email });
+        if (!user) return res.send({ status: "active" });
+        res.send({ status: user.status });
+      } catch (error) {
+        res.status(500).send({ message: "Error checking status" });
+      }
+    });
+
+
+
+    /** --- 2. USER & PROFILE MANAGEMENT --- **/
+
     
