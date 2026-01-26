@@ -272,4 +272,57 @@ async function run() {
       res.send(result);
     });
 
-    
+    /** --- 4. BOOKING & SCHEDULE MANAGEMENT --- **/
+
+    // নতুন বুকিং তৈরি
+    app.post("/bookings", async (req, res) => {
+      try {
+        const result = await bookingCollection.insertOne(req.body);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Booking Error" });
+      }
+    });
+
+    // ইউজারের নিজস্ব বুকিং লিস্ট (Pagination & Sort)
+    app.get("/bookings", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden Access" });
+
+      const page = parseInt(req.query.page) || 1;
+      const size = parseInt(req.query.size) || 4;
+      const sortField = req.query.sort || "date";
+      const query = { userEmail: email };
+
+      let sortOptions = {};
+      if (sortField === "date") sortOptions = { date: -1 };
+      else if (sortField === "price") sortOptions = { price: 1 };
+      else if (sortField === "paymentStatus")
+        sortOptions = { paymentStatus: 1 };
+
+      const totalCount = await bookingCollection.countDocuments(query);
+      const result = await bookingCollection
+        .find(query)
+        .sort(sortOptions)
+        .skip((page - 1) * size)
+        .limit(size)
+        .toArray();
+      res.send({ result, totalCount });
+    });
+
+    // বুকিং ডিলিট (Cancel)
+    app.delete("/bookings/:id", async (req, res) => {
+      const result = await bookingCollection.deleteOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.send(result);
+    });
+
+    // অ্যাডমিন সব বুকিং দেখবে
+    app.get("/admin/all-bookings", verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await bookingCollection.find().toArray();
+      res.send(result);
+    });
+
+ 
