@@ -325,4 +325,118 @@ async function run() {
       res.send(result);
     });
 
- 
+   // ডেকোরেটর অ্যাসাইন করা (Admin Only)
+    app.patch(
+      "/admin/assign-decorator/:id",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const result = await bookingCollection.updateOne(
+          { _id: new ObjectId(req.params.id) },
+          { $set: req.body }
+        );
+        res.send(result);
+      }
+    );
+
+    // ডেকোরেটর লিস্ট দেখা (Admin Only)
+    app.get(
+      "/admin/available-decorators",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const result = await usersCollection
+          .find({ role: "decorator" })
+          .toArray();
+        res.send(result);
+      }
+    );
+
+    // ডেকোরেটরের নিজের অ্যাসাইন করা কাজ
+    app.get("/my-assigned-services/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden" });
+      const result = await bookingCollection
+        .find({ decoratorEmail: email, status: "assigned" })
+        .toArray();
+      res.send(result);
+    });
+
+    // ডেকোরেটর স্ট্যাটাস আপডেট (Completed/In-progress)
+    app.patch("/assigned-services/status/:id", verifyJWT, async (req, res) => {
+      const result = await bookingCollection.updateOne(
+        { _id: new ObjectId(req.params.id) },
+        { $set: { decoratorStatus: req.body.status } }
+      );
+      res.send(result);
+    });
+
+    // ডেকোরেটরের আজকের শিডিউল
+    app.get("/today-schedule/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden" });
+      const today = new Date().toISOString().split("T")[0];
+      const result = await bookingCollection
+        .find({ decoratorEmail: email, date: today, status: "assigned" })
+        .toArray();
+      res.send(result);
+    });
+
+    /** --- 5. PAYMENT & STRIPE APIs --- **/
+
+    // স্ট্রাইপ পেমেন্ট সেশন তৈরি
+    app.post("/create-checkout-session", async (req, res) => {
+      try {
+        const paymentInfo = req.body;
+        const amount = parseInt(paymentInfo.price) * 100;
+        console.log(
+          `${process.env.SITE_URL}/dashboard/payment-success/}`
+        );
+        
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ["card"],
+          line_items: [
+            {
+              price_data: {
+                currency: "USD",
+                unit_amount: amount,
+                product_data: { name: paymentInfo.name },
+              },
+              quantity: 1,
+            },
+          ],
+          mode: "payment",
+          customer_email: paymentInfo.user_email,
+          metadata: { serviceId: paymentInfo.serviceID },
+          success_url: `${process.env.SITE_URL}/dashboard/payment-success/${paymentInfo.serviceID}`,
+          cancel_url: `${process.env.SITE_URL}/dashboard/my-bookings`,
+        });
+        res.send({ url: session.url });
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+    // পেমেন্ট সাকসেস হলে স্ট্যাটাস 'paid' করা
+    app.patch("/bookings/payment-success/:id", async (req, res) => {
+      const result = await bookingCollection.updateOne(
+        { _id: new ObjectId(req.params.id) },
+        { $set: { paymentStatus: "paid" } }
+      );
+      res.send(result);
+    });
+
+    // ইউজারের পেমেন্ট হিস্ট্রি
+    app.get("/payments/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden" });
+      const result = await bookingCollection
+        .find({ userEmail: email, paymentStatus: "paid" })
+        .toArray();
+      res.send(result);
+    });
+
+    
