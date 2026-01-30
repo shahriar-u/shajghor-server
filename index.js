@@ -439,4 +439,136 @@ async function run() {
       res.send(result);
     });
 
+    /** --- 6. STATS & ANALYTICS APIs --- **/
+
+    // ডেকোরেটর আর্নিং সামারি
+    app.get("/decorator-earnings/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email)
+        return res.status(403).send({ message: "Forbidden" });
+      const query = {
+        decoratorEmail: email,
+        decoratorStatus: "Completed",
+        paymentStatus: "paid",
+      };
+      const tasks = await bookingCollection.find(query).toArray();
+      const totalEarnings = tasks.reduce(
+        (sum, task) => sum + parseFloat(task.price || 0),
+        0
+      );
+      res.send({ totalEarnings, taskCount: tasks.length, history: tasks });
+    });
+
+    // অ্যাডমিন অ্যানালিটিক্স (Revenue & Demand)
+    app.get("/admin-stats", verifyJWT, verifyAdmin, async (req, res) => {
+      const bookings = await bookingCollection
+        .find({ paymentStatus: "paid" })
+        .toArray();
+      const totalRevenue = bookings.reduce(
+        (sum, item) => sum + parseFloat(item.price || 0),
+        0
+      );
+      const demandData = {};
+      bookings.forEach((item) => {
+        const name = item.serviceTitle || item.serviceName;
+        demandData[name] = (demandData[name] || 0) + 1;
+      });
+      const chartData = Object.keys(demandData)
+        .map((name) => ({ name, count: demandData[name] }))
+        .sort((a, b) => b.count - a.count);
+      res.send({ totalRevenue, totalBookings: bookings.length, chartData });
+    });
+
+
+
+    ///////////// old/////////////
+    // ২. সকল ইউজার দেখা (অ্যাডমিনের জন্য)
+    app.get("/users", verifyJWT, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    // ৩. ইউজারের রোল চেক করা (Admin কি না)
+    app.get("/users/admin/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (req.decoded.email !== email) {
+        res.send({ admin: false });
+      }
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const result = { admin: user?.role === "admin" };
+      res.send(result);
+    });
+
+    // ৪. ইউজারের রোল চেক করার রুট (ব্যবহারকারী admin, decorator নাকি user তা জানাবে)
+    app.get("/users/role/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+
+      // টোকেনের ইমেইল আর রিকোয়েস্টের ইমেইল মিলছে কিনা চেক (Security)
+      if (req.decoded.email !== email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "Forbidden Access" });
+      }
+
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+
+      // ডাটাবেজে ইউজার থাকলে তার রোল পাঠাবে, না থাকলে ডিফল্ট 'user'
+      res.send({ role: user?.role || "user" });
+    });
+
+    // ইউজার রোল আপডেট করার এন্ডপয়েন্ট (Admin Only)
+    app.patch("/users/role/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const { role } = req.body; // ফ্রন্টএন্ড থেকে 'decorator' বা 'admin' আসবে
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { role: role.toLowerCase() }, // সব সময় ছোট হাতের অক্ষরে সেভ হবে
+      };
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // নির্দিষ্ট ডেকোরেটরের নিজের সার্ভিসগুলো দেখার রুট
+    app.get("/my-services/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+
+      // সিকিউরিটি চেক: যে রিকোয়েস্ট করছে সে কি তার নিজের ডাটাই চাচ্ছে?
+      if (req.decoded.email !== email) {
+        return res
+          .status(403)
+          .send({ error: true, message: "Forbidden access" });
+      }
+
+      const query = { decoratorEmail: email };
+      const result = await serviceCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // ১. সার্ভিস ডিলিট করার এপিআই
+    app.delete("/services/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await serviceCollection.deleteOne(query);
+      res.send(result);
+    });
+
+   
+
     
+  } finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
+  }
+}
+run().catch(console.dir);
+
+app.get("/", (req, res) => {
+  res.send("Hello World!");
+});
+
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`);
+});
+ 
